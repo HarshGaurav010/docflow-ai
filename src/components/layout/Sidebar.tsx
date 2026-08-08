@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   FileText,
@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { signOutUser } from '@/lib/supabase/auth';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -23,6 +24,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
+  const router = useRouter();
 
   const mainNav = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -142,13 +144,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <span className="text-xs text-slate-400 truncate">harsh@acme.com</span>
               </div>
             </div>
-            <Link
-              href="/login"
+            <button
+              onClick={async () => {
+                await signOutUser();
+                router.push('/login');
+              }}
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
               title="Log Out"
             >
               <LogOut className="h-4 w-4" />
-            </Link>
+            </button>
           </div>
         </div>
       </aside>
