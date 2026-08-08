@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -16,6 +16,35 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOutUser } from '@/lib/supabase/auth';
+import { supabase } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+
+/**
+ * Derives up to two uppercase initials from a display name or email address.
+ * Examples:
+ *   "Harsh Mehta"         → "HM"
+ *   "harsh@acme.com"      → "H"
+ *   "jane.doe@example.com"→ "J"
+ */
+function getInitials(nameOrEmail: string): string {
+  const name = nameOrEmail.split('@')[0]; // strip email domain if present
+  const parts = name.trim().split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return parts[0]?.[0]?.toUpperCase() ?? '?';
+}
+
+/**
+ * Returns the best available display name for the user:
+ *   1. full_name from user_metadata (set during signup)
+ *   2. name from user_metadata (Google OAuth etc.)
+ *   3. email address as fallback
+ */
+function getDisplayName(user: User): string {
+  const meta = user.user_metadata as Record<string, string> | undefined;
+  return meta?.full_name || meta?.name || user.email || 'Unknown User';
+}
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -25,6 +54,27 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const router = useRouter();
+
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Fetch the current session user on mount
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    // Keep the user state in sync with auth state changes
+    // (handles sign-in / sign-out events from other tabs)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const displayName = user ? getDisplayName(user) : '';
+  const email = user?.email ?? '';
+  const initials = user ? getInitials(displayName || email) : '??';
 
   const mainNav = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -136,12 +186,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="border-t border-slate-800/80 p-4">
           <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 font-semibold border border-indigo-500/30 text-sm">
-                HM
+              {/* Avatar — initials derived from real user data */}
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 font-semibold border border-indigo-500/30 text-sm select-none">
+                {initials}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-white truncate">Harsh Mehta</span>
-                <span className="text-xs text-slate-400 truncate">harsh@acme.com</span>
+                {/* Show display name if available, else fall back to email */}
+                <span className="text-sm font-medium text-white truncate">
+                  {displayName || email || '—'}
+                </span>
+                {/* Show email beneath display name only when they differ */}
+                {displayName && displayName !== email && email && (
+                  <span className="text-xs text-slate-400 truncate">{email}</span>
+                )}
+                {/* If no display name, email is already shown above — show placeholder */}
+                {!displayName && !email && (
+                  <span className="text-xs text-slate-500 truncate">Loading…</span>
+                )}
               </div>
             </div>
             <button
