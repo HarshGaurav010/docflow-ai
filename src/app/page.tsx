@@ -17,9 +17,11 @@ export const metadata = {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="relative min-h-screen bg-[#06080f] text-slate-100 selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+      {/* Subtle noise texture for premium feel */}
+      <div className="noise-overlay fixed inset-0 pointer-events-none z-[1]" />
       <Navbar />
-      <main>
+      <main className="relative z-[2]">
         <LandingAnimations>
           <Hero />
           <ProblemSection />
